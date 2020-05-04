@@ -1,5 +1,15 @@
 {
     "python.pythonPath": "venv/bin/python",
     "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "cSpell.ignoreWords": [
+        "asdict"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.cwd": "",
+    "python.testing.pytestArgs": [
+        "ch2"
+    ],
+    "python.testing.nosetestsEnabled": false
 }

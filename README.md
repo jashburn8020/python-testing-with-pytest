@@ -25,6 +25,17 @@
       - [`ids` Optional Parameter to Make Our Own Identifiers](#ids-optional-parameter-to-make-our-own-identifiers)
       - [`parametrize()` on Classes](#parametrize-on-classes)
       - [Identify Parameters with an `id`](#identify-parameters-with-an-id)
+  - [pytest Fixtures](#pytest-fixtures)
+    - [Sharing Fixtures Through conftest.py](#sharing-fixtures-through-conftestpy)
+    - [Using Fixtures for Setup and Teardown](#using-fixtures-for-setup-and-teardown)
+    - [Tracing Fixture Execution with `--setup-show`](#tracing-fixture-execution-with---setup-show)
+    - [Using Fixtures for Test Data](#using-fixtures-for-test-data)
+    - [Using Multiple Fixtures](#using-multiple-fixtures)
+    - [Specifying Fixture Scope](#specifying-fixture-scope)
+    - [Specifying Fixtures with usefixtures](#specifying-fixtures-with-usefixtures)
+    - [Using `autouse` for Fixtures That Always Get Used](#using-autouse-for-fixtures-that-always-get-used)
+    - [Renaming Fixtures](#renaming-fixtures)
+    - [Parametrizing Fixtures](#parametrizing-fixtures)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -754,6 +765,455 @@ tests/func/test_add_variety.py::test_add_6[summary/owner/done] PASSED    [100%]
 
 ============================== 3 passed in 0.46s ===============================
 ```
+
+## pytest Fixtures
+
+- Fixtures are functions that are run by pytest before (and sometimes after) the actual test functions
+  - the mechanism pytest provides to allow the separation of "getting ready for" and "cleaning up after" code from your test functions
+- You can use fixtures to
+  - get a data set for the tests to work on
+  - get a system into a known state before running a test
+  - get data ready for multiple tests
+- `@pytest.fixture()` decorator is used to tell pytest that a function is a fixture
+- When you include the fixture name in the parameter list of a test function, pytest knows to run it before running the test
+
+```python
+@pytest.fixture()
+def​ some_data():
+    """Return answer to ultimate question."""
+    ​return​ 42
+
+
+​def​ test_some_data(some_data):
+    """Use fixture return value in a test."""
+    ​assert​ some_data == 42
+```
+
+- `test_some_data()` has the name of the fixture, `some_data`, as a parameter
+  - pytest will look for a fixture with this name in the module of the test
+  - or in `conftest.py` files if it doesn't find it in this file
+
+### Sharing Fixtures Through conftest.py
+
+- To share fixtures among multiple test files
+  - use a **`conftest.py`** file somewhere centrally located for all of the tests
+  - for the Tasks project: `tasks_proj/tests/conftest.py`
+- You can put fixtures in individual test files
+  - to only be used by tests in that file
+- You can have other `conftest.py` files in subdirectories of the top tests directory
+  - will be available to tests in that directory and subdirectories
+- Although `conftest.py` is a Python module, it should _not_ be imported by test files
+  - gets read by pytest, and is considered a local _plugin_
+
+### Using Fixtures for Setup and Teardown
+
+- pytest includes a fixture called **`tmpdir`** that we can use for testing and don't have to worry about cleaning up
+
+```python
+@pytest.fixture()
+def tasks_db(tmpdir):
+    """Connect to db before tests, disconnect after."""
+    # Setup : start db
+    tasks.start_tasks_db(str(tmpdir), "tiny")
+
+    yield  # this is where the testing happens
+
+    # Teardown : stop db
+    tasks.stop_tasks_db()
+```
+
+- If there is a **`yield`** in the function
+  - fixture execution stops there
+  - passes control to the tests
+  - picks up on the next line after the tests are done
+- Code after the `yield` is guaranteed to run regardless of what happens during the tests
+- We're not returning any data with the `yield` in this fixture, but you can
+- See: [`tests/conftest.py`](ch3/a/tasks_proj/tests/conftest.py)
+
+### Tracing Fixture Execution with `--setup-show`
+
+- Use `--setup-show` to see what fixtures are run
+
+```python
+def test_add_returns_valid_id(tasks_db):
+    ...
+```
+
+```console
+$ pytest --setup-show func/test_add.py -k valid_id
+============================= test session starts ==============================
+...
+collected 3 items / 2 deselected / 1 selected
+
+func/test_add.py
+SETUP    S tmp_path_factory
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tmpdir (fixtures used: tmp_path)
+        SETUP    F tasks_db (fixtures used: tmpdir)
+        func/test_add.py::test_add_returns_valid_id (fixtures used: request, tasks_db, tmp_path, tmp_path_factory, tmpdir).
+        TEARDOWN F tasks_db
+        TEARDOWN F tmpdir
+        TEARDOWN F tmp_path
+TEARDOWN S tmp_path_factory
+```
+
+- The `F` and `S` in front of the fixture names indicate scope
+  - `F` for function scope
+  - `S` for session scope
+
+### Using Fixtures for Test Data
+
+- Fixtures are a great place to store data to use for testing
+  - you can return anything
+- When an exception occurs in a fixture:
+
+```console
+$ pytest test_fixtures.py::test_other_data
+============================= test session starts ==============================
+...
+collected 1 item
+
+test_fixtures.py E                                                       [100%]
+
+==================================== ERRORS ====================================
+______________________ ERROR at setup of test_other_data _______________________
+
+    @pytest.fixture()
+    def some_other_data():
+        """Raise an exception from fixture."""
+>       return 1 / 0
+E       ZeroDivisionError: division by zero
+
+test_fixtures.py:20: ZeroDivisionError
+=========================== short test summary info ============================
+ERROR test_fixtures.py::test_other_data - ZeroDivisionError: division by zero
+=============================== 1 error in 0.02s ===============================
+```
+
+### Using Multiple Fixtures
+
+- [`tests/conftest.py`](ch3/a/tasks_proj/tests/conftest.py):
+
+```python
+@pytest.fixture()
+def tasks_db(tmpdir):
+    """Connect to db before tests, disconnect after."""
+    # Setup : start db
+    tasks.start_tasks_db(str(tmpdir), "tiny")
+
+    yield  # this is where the testing happens
+
+    # Teardown : stop db
+    tasks.stop_tasks_db()
+
+
+@pytest.fixture()
+def tasks_just_a_few():
+    """All summaries and owners are unique."""
+    return (
+        Task("Write some code", "Brian", True),
+        Task("Code review Brian's code", "Katie", False),
+        Task("Fix what Brian did", "Michelle", False),
+    )
+
+
+@pytest.fixture()
+def db_with_3_tasks(tasks_db, tasks_just_a_few):
+    """Connected db with 3 tasks, all unique."""
+    for t in tasks_just_a_few:
+        tasks.add(t)
+```
+
+- [`func/test_add.py`](ch3/a/tasks_proj/tests/func/test_add.py):
+
+```python
+def test_add_increases_count(db_with_3_tasks):
+    """Test tasks.add() affect on tasks.count()."""
+    # GIVEN a db with 3 tasks
+    #  WHEN another task is added
+    tasks.add(Task("throw a party"))
+
+    #  THEN the count increases by 1
+    assert tasks.count() == 4
+```
+
+```console
+$ pytest --setup-show func/test_add.py::test_add_increases_count
+============================= test session starts ==============================
+...
+collected 1 item
+
+func/test_add.py
+SETUP    S tmp_path_factory
+        SETUP    F tmp_path (fixtures used: tmp_path_factory)
+        SETUP    F tmpdir (fixtures used: tmp_path)
+        SETUP    F tasks_db (fixtures used: tmpdir)
+        SETUP    F tasks_just_a_few
+        SETUP    F db_with_3_tasks (fixtures used: tasks_db, tasks_just_a_few)
+        func/test_add.py::test_add_increases_count (fixtures used: db_with_3_tasks, request, tasks_db, tasks_just_a_few, tmp_path, tmp_path_factory, tmpdir).
+        TEARDOWN F db_with_3_tasks
+        TEARDOWN F tasks_just_a_few
+        TEARDOWN F tasks_db
+        TEARDOWN F tmpdir
+        TEARDOWN F tmp_path
+TEARDOWN S tmp_path_factory
+```
+
+### Specifying Fixture Scope
+
+- Fixtures include an optional parameter called **`scope`**, which controls how often a fixture gets set up and torn down
+  - `scope="function"`
+    - run once per test function
+    - default scope used when no `scope` parameter is specified
+  - `scope="class"`
+    - run once per test class, regardless of how many test methods are in the class
+  - `scope="module"`
+    - run once per module, regardless of how many test functions or methods or other fixtures in the module use it
+  - `scope="session"`
+    - run once per session
+    - all test methods and functions using a fixture of session scope share one setup and teardown call
+- The scope is set at the definition of a fixture, and not at the place where it's called
+  - test functions that use a fixture don't control how often a fixture is set up and torn down
+- Fixtures can only depend on other fixtures of their same scope or wider
+- [`tests/conftest.py`](ch3/b/tasks_proj/tests/conftest.py):
+
+```python
+@pytest.fixture(scope="session")
+def tasks_just_a_few():
+    """All summaries and owners are unique."""
+    return (
+        Task("Write some code", "Brian", True),
+        Task("Code review Brian's code", "Katie", False),
+        Task("Fix what Brian did", "Michelle", False),
+    )
+
+
+@pytest.fixture(scope="session")
+def tasks_db_session(tmpdir_factory):
+    """Connect to db before tests, disconnect after."""
+    temp_dir = tmpdir_factory.mktemp("temp")
+    tasks.start_tasks_db(str(temp_dir), "tiny")
+    yield
+    tasks.stop_tasks_db()
+
+
+@pytest.fixture()
+def tasks_db(tasks_db_session):
+    """An empty tasks db."""
+    tasks.delete_all()
+
+
+@pytest.fixture()
+def db_with_3_tasks(tasks_db, tasks_just_a_few):
+    """Connected db with 3 tasks, all unique."""
+    for t in tasks_just_a_few:
+        tasks.add(t)
+```
+
+- [`func/test_add.py`](ch3/b/tasks_proj/tests/func/test_add.py):
+
+```python
+def test_add_increases_count(db_with_3_tasks):
+    """Test tasks.add() affect on tasks.count()."""
+    # GIVEN a db with 3 tasks
+    #  WHEN another task is added
+    tasks.add(Task("throw a party"))
+
+    #  THEN the count increases by 1
+    assert tasks.count() == 4
+```
+
+```console
+$ pytest --setup-show func/test_add.py::test_add_increases_count
+============================= test session starts ==============================
+...
+collected 1 item
+
+func/test_add.py
+SETUP    S tasks_just_a_few
+SETUP    S tmp_path_factory
+SETUP    S tmpdir_factory (fixtures used: tmp_path_factory)
+SETUP    S tasks_db_session (fixtures used: tmpdir_factory)
+        SETUP    F tasks_db (fixtures used: tasks_db_session)
+        SETUP    F db_with_3_tasks (fixtures used: tasks_db, tasks_just_a_few)
+        func/test_add.py::test_add_increases_count (fixtures used: db_with_3_tasks, request, tasks_db, tasks_db_session, tasks_just_a_few, tmp_path_factory, tmpdir_factory).
+        TEARDOWN F db_with_3_tasks
+        TEARDOWN F tasks_db
+TEARDOWN S tasks_db_session
+TEARDOWN S tmpdir_factory
+TEARDOWN S tmp_path_factory
+TEARDOWN S tasks_just_a_few
+```
+
+### Specifying Fixtures with usefixtures
+
+- You can also mark a test or a class with `@pytest.mark.usefixtures('fixture1', 'fixture2')`
+  - takes a string that is composed of a comma-separated list of fixtures to use
+- A test using a fixture due to `usefixtures` cannot use the fixture's return value
+- See: [`ch3/test_scope.py`](ch3/test_scope.py)
+
+### Using `autouse` for Fixtures That Always Get Used
+
+- You can use `autouse=True` to get a fixture to run all of the time
+- See: [`ch3/test_autouse.py`](ch3/test_autouse.py)
+
+### Renaming Fixtures
+
+- pytest allows you to rename fixtures with a **`name`** parameter to `@pytest.fixture()`
+
+```python
+@pytest.fixture(name="lue")
+def ultimate_answer_to_life_the_universe_and_everything():
+    """Return ultimate answer."""
+    return 42
+
+
+def test_everything(lue):
+    """Use the shorter name."""
+    assert lue == 42
+```
+
+```console
+$ pytest --setup-show test_rename_fixture.py
+============================= test session starts ==============================
+...
+collected 1 item
+
+test_rename_fixture.py
+        SETUP    F lue
+        test_rename_fixture.py::test_everything (fixtures used: lue).
+        TEARDOWN F lue
+
+============================== 1 passed in 0.00s ===============================
+```
+
+- Use the `--fixtures` pytest option to find out where `lue` is defined
+  - lists all the fixtures available for the test, including ones that have been renamed
+
+```console
+--fixtures, --funcargs
+                        show available fixtures, sorted by plugin appearance
+                        (fixtures with leading '_' are only shown with '-v')
+```
+
+```console
+$ pytest --fixtures test_rename_fixture.py
+============================= test session starts ==============================
+...
+collected 1 item
+cache
+    Return a cache object that can persist state between testing sessions.
+    ...
+...
+------------------ fixtures defined from test_rename_fixture -------------------
+lue
+    Return ultimate answer.
+
+
+============================ no tests ran in 0.00s =============================
+```
+
+### Parametrizing Fixtures
+
+- [`func/test_add_variety2.py`](ch3/b/tasks_proj/tests/func/test_add_variety2.py)
+
+```python
+tasks_to_try = (
+    Task("sleep", done=True),
+    Task("wake", "brian"),
+    Task("breathe", "BRIAN", True),
+    Task("exercise", "BrIaN", False),
+)
+
+
+@pytest.fixture(params=tasks_to_try)
+def a_task(request):
+    """Using no ids."""
+    return request.param
+
+
+def test_add_a(tasks_db, a_task):
+    """Using a_task fixture (no ids)."""
+    task_id = tasks.add(a_task)
+    t_from_db = tasks.get(task_id)
+    assert equivalent(t_from_db, a_task)
+```
+
+- `request` is a built-in fixture that represents the calling state of the fixture
+  - has a field `param` that is filled in with one element from the list assigned to `params` in `@pytest.fixture(params=tasks_to_try)`
+
+```console
+$ pytest --setup-show test_add_variety2.py::test_add_a
+============================= test session starts ==============================
+...
+collected 4 items
+
+test_add_variety2.py
+SETUP    S tmp_path_factory
+SETUP    S tmpdir_factory (fixtures used: tmp_path_factory)
+SETUP    S tasks_db_session (fixtures used: tmpdir_factory)
+        SETUP    F tasks_db (fixtures used: tasks_db_session)
+        SETUP    F a_task[Task(summary='sleep', owner=None, done=True, id=None)]
+        func/test_add_variety2.py::test_add_a[a_task0] (fixtures used: a_task, request, tasks_db, tasks_db_session, tmp_path_factory, tmpdir_factory).
+        TEARDOWN F a_task[Task(summary='sleep', owner=None, done=True, id=None)]
+        TEARDOWN F tasks_db
+        SETUP    F tasks_db (fixtures used: tasks_db_session)
+        SETUP    F a_task[Task(summary='wake', owner='brian', done=False, id=None)]
+        func/test_add_variety2.py::test_add_a[a_task1] (fixtures used: a_task, request, tasks_db, tasks_db_session, tmp_path_factory, tmpdir_factory).
+        TEARDOWN F a_task[Task(summary='wake', owner='brian', done=False, id=None)]
+        TEARDOWN F tasks_db
+        SETUP    F tasks_db (fixtures used: tasks_db_session)
+        SETUP    F a_task[Task(summary='breathe', owner='BRIAN', done=True, id=None)]
+        func/test_add_variety2.py::test_add_a[a_task2] (fixtures used: a_task, request, tasks_db, tasks_db_session, tmp_path_factory, tmpdir_factory).
+        TEARDOWN F a_task[Task(summary='breathe', owner='BRIAN', done=True, id=None)]
+        TEARDOWN F tasks_db
+        SETUP    F tasks_db (fixtures used: tasks_db_session)
+        SETUP    F a_task[Task(summary='exercise', owner='BrIaN', done=False, id=None)]
+        func/test_add_variety2.py::test_add_a[a_task3] (fixtures used: a_task, request, tasks_db, tasks_db_session, tmp_path_factory, tmpdir_factory).
+        TEARDOWN F a_task[Task(summary='exercise', owner='BrIaN', done=False, id=None)]
+        TEARDOWN F tasks_db
+TEARDOWN S tasks_db_session
+TEARDOWN S tmpdir_factory
+TEARDOWN S tmp_path_factory
+
+============================== 4 passed in 0.67s ===============================
+```
+
+- `ids`: list of string ids each corresponding to the params so that they are part of the test id
+
+```python
+task_ids = ["Task({},{},{})".format(t.summary, t.owner, t.done) for t in tasks_to_try]
+
+
+@pytest.fixture(params=tasks_to_try, ids=task_ids)
+def b_task(request):
+    """Using a list of ids."""
+    return request.param
+```
+
+- We can also set the `ids` parameter to a function that provides the identifiers
+
+```python
+def id_func(fixture_value):
+    """A function for generating ids."""
+    t = fixture_value
+    return "Task({},{},{})".format(t.summary, t.owner, t.done)
+
+
+@pytest.fixture(params=tasks_to_try, ids=id_func)
+def c_task(request):
+    """Using a function (id_func) to generate ids."""
+    return request.param
+
+
+def test_add_c(tasks_db, c_task):
+    """Use fixture with generated ids."""
+    task_id = tasks.add(c_task)
+    t_from_db = tasks.get(task_id)
+    assert equivalent(t_from_db, c_task)
+```
+
+- Since the parametrization is a list of `Task` objects, `id_func()` will be called with a `Task` object, which allows us to use the `namedtuple` accessor methods to access a single `Task` object to generate the identifier for one `Task` object at a time
 
 ## Sources
 

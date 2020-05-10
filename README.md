@@ -36,6 +36,14 @@
     - [Using `autouse` for Fixtures That Always Get Used](#using-autouse-for-fixtures-that-always-get-used)
     - [Renaming Fixtures](#renaming-fixtures)
     - [Parametrizing Fixtures](#parametrizing-fixtures)
+  - [Builtin Fixtures](#builtin-fixtures)
+    - [Using `tmpdir` and `tmpdir_factory`](#using-tmpdir-and-tmpdir_factory)
+    - [Using `pytestconfig`](#using-pytestconfig)
+    - [Using `cache`](#using-cache)
+    - [Using `capsys`](#using-capsys)
+    - [Using `monkeypatch`](#using-monkeypatch)
+    - [Using `doctest_namespace`](#using-doctest_namespace)
+    - [Using `recwarn`](#using-recwarn)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -1214,6 +1222,232 @@ def test_add_c(tasks_db, c_task):
 ```
 
 - Since the parametrization is a list of `Task` objects, `id_func()` will be called with a `Task` object, which allows us to use the `namedtuple` accessor methods to access a single `Task` object to generate the identifier for one `Task` object at a time
+
+## Builtin Fixtures
+
+### Using `tmpdir` and `tmpdir_factory`
+
+- The `tmpdir` and `tmpdir_factory` builtin fixtures are used to create a temporary file system directory before your test runs, and remove the directory when your test is finished
+- [`tmpdir`](https://docs.pytest.org/en/stable/reference.html#tmpdir)
+  - to create files or directories used by a single test
+  - function scope
+  - the value returned from `tmpdir` is an object of type [`py.path.local`](https://py.readthedocs.io/en/latest/path.html)
+- [`tmpdir_factory`](https://docs.pytest.org/en/stable/reference.html#tmpdir-factory)
+  - to set up a directory for many tests
+  - session scope
+  - `mktemp()`: creates a directory
+  - `getbasetemp()`: returns the base directory used for this session
+    - base directory is left alone after a session, but only the most recent few temporary base directories are left on the system
+    - `pytest --basetemp=mydir` to specify your own base directory
+- See: [`ch4/test_tmpdir.py`](ch4/test_tmpdir.py)
+- Temporary directories for other scopes
+  - create another fixture of the scope we want and have it use `tmpdir_factory`
+  - e.g., put a `module` scope fixture in either the module itself, or in a `conftest.py` file
+  - see:
+    - [`authors/conftest.py`](ch4/authors/conftest.py)
+    - [`authors/test_authors.py`](ch4/authors/test_authors.py)
+
+### Using `pytestconfig`
+
+- With the `pytestconfig` builtin fixture, you can control how pytest runs through command-line arguments and options, configuration files, plugins, and the directory from which you launched pytest
+- Shortcut to `request.config`
+- Sometimes referred to in the pytest documentation as "the pytest config object"
+- Adding a custom command-line option and read the option value from within a test
+  - read the value of command-line options directly from `pytestconfig`
+  - add the option and have pytest parse it using a _hook function_
+    - should be done via plugins or in the `conftest.py` file at the top of your project directory structure
+    - see: [`pytestconfig/conftest.py`](ch4/pytestconfig/conftest.py)
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+custom options:
+  --myopt               some boolean option
+  --foo=FOO             foo: bar or baz
+```
+
+- You can then
+  - access options from a test
+  - access `pytestconfig` from a fixture
+  - make fixture for the option name
+  - access builtin options as well as information about how pytest was started (the directory, the arguments, and so on)
+  - see: [`pytestconfig/test_config.py`](ch4/pytestconfig/test_config.py)
+
+```console
+$ pytest -s -q --myopt --foo baz test_config.py::test_option
+"foo" set to: baz
+"myopt" set to: True
+.
+1 passed in 0.07s
+
+$ pytest -s -q --myopt --foo baz test_config.py::test_pytestconfig
+args            : ['test_config.py::test_pytestconfig']
+inifile         : None
+invocation_dir  : /.../ch4/pytestconfig
+rootdir         : /.../ch4/pytestconfig
+-k EXPRESSION   :
+-v, --verbose   : -1
+-q, --quiet     : 1
+-l, --showlocals: False
+--tb=style      : auto
+.
+1 passed in 0.00s
+```
+
+### Using `cache`
+
+- Sometimes passing information from one test session to the next can be quite useful
+  - with the `cache` builtin fixture
+- `cache` is used for the `--last-failed` and `--failed-first` builtin functionality
+
+```console
+$ pytest --cache-clear cache/test_pass_fail.py
+============================= test session starts ==============================
+...
+collected 2 items
+
+cache/test_pass_fail.py .F                                               [100%]
+
+=================================== FAILURES ===================================
+_______________________________ test_this_fails ________________________________
+
+    def test_this_fails():
+>       assert 1 == 2
+E       assert 1 == 2
+
+cache/test_pass_fail.py:6: AssertionError
+=========================== short test summary info ============================
+FAILED cache/test_pass_fail.py::test_this_fails - assert 1 == 2
+========================= 1 failed, 1 passed in 0.02s ==========================
+
+$ pytest --cache-show
+============================= test session starts ==============================
+...
+cachedir: /.../ch4/.pytest_cache
+----------------------------- cache values for '*' -----------------------------
+cache/lastfailed contains:
+  {'cache/test_pass_fail.py::test_this_fails': True}
+cache/nodeids contains:
+  ['cache/test_pass_fail.py::test_this_passes',
+   'cache/test_pass_fail.py::test_this_fails']
+cache/stepwise contains:
+  []
+
+============================ no tests ran in 0.00s =============================
+```
+
+- The interface for the `cache` fixture:
+  - `cache.get(key, default)`
+  - `cache.set(key, value)`
+- By convention, key names start with the name of your application or plugin, followed by a `/`, and continuing to separate sections of the key name with `/`s
+  - the value you store can be anything that is convertible to json
+- Example: a fixture that records how long tests take, saves the times, and on the next run, reports an error on tests that take longer than, say, twice as long as last time
+  - see: [`cache/test_slower.py`](ch4/cache/test_slower.py)
+  - see also: [`cache/test_slower_2.py`](ch4/cache/test_slower_2.py)
+
+### Using `capsys`
+
+- The `capsys` builtin fixture provides two bits of functionality:
+  - retrieve `stdout` and `stderr` from some code
+  - disables output capture temporarily
+- The captured `stdout` and `stderr` are retrieved from `capsys.redouterr()`
+  - return value is whatever has been captured since the beginning of the function, or from the last time it was called
+  - see [`cap/test_capsys.py`](ch4/cap/test_capsys.py)
+- Use `with capsys.disabled()` to temporarily let output get past the capture mechanism
+
+### Using `monkeypatch`
+
+- A "monkey patch" is a dynamic modification of a class or module during runtime
+  - a convenient way to take over part of the runtime environment of the code under test and replace either input dependencies or output dependencies with objects or functions that are more convenient for testing
+- The `monkeypatch` fixture provides the following functions:
+  - `setattr(target, name, value=<notset>, raising=True)`: Set an attribute
+  - `delattr(target, name=<notset>, raising=True)`: Delete an attribute
+  - `setitem(dic, name, value)`: Set a dictionary entry
+  - `delitem(dic, name, raising=True)`: Delete a dictionary entry
+  - `setenv(name, value, prepend=None)`: Set an environmental variable
+  - `delenv(name, raising=True)`: Delete an environmental variable
+  - `syspath_prepend(path)`: Prepend path to sys.path, which is Python's list of import locations
+  - `chdir(path)`: Change the current working directory
+- See: <https://docs.pytest.org/en/latest/reference.html#monkeypatch>
+- Consider (see: [`monkey/cheese.py`](ch4/monkey/cheese.py)):
+
+```python
+def write_cheese_preferences(prefs):
+    full_path = os.path.expanduser("~/.cheese.json")
+    with open(full_path, "w") as f:
+        json.dump(prefs, f, indent=4)
+
+
+def write_default_cheese_preferences():
+    write_cheese_preferences(_default_prefs)
+```
+
+- `write_default_cheese_preferences()` is a function that takes no parameters and doesn't return anything
+  - has a side effect that we can test - it writes a file to the current user's home directory
+  - patch `expanduser` so that anything in the `cheese` module that calls `os.path.expanduser()` gets our lambda expression instead
+  - see: `test_def_prefs_change_expanduser(tmpdir, monkeypatch)` in [`monkey/test_cheese.py`](ch4/monkey/test_cheese.py)
+
+```python
+monkeypatch.setattr(
+    cheese.os.path, "expanduser", (lambda x: x.replace("~", str(fake_home_dir)))
+)
+```
+
+- Use `monkeypatch.setitem()` to change dictionary items just for the duration of the test
+  - see: `test_def_prefs_change_defaults(tmpdir, monkeypatch)` in [`monkey/test_cheese.py`](ch4/monkey/test_cheese.py)
+- `syspath_prepend(path)`
+  - puts your new path at the head of the line for module import directories
+  - one use would be to replace a system-wide module or package with a stub version, and the code under test will find the stub version first
+- `chdir(path)`
+  - changes the current working directory during the test
+  - useful for testing command-line scripts and other utilities that depend on what the current working directory is by setting up a temporary directory with whatever contents make sense for your script
+- You can also use the `monkeypatch` fixture functions in conjunction with `unittest.mock` to temporarily replace attributes with mock objects
+
+### Using `doctest_namespace`
+
+- The `doctest` module is part of the standard Python library and allows you to put little code examples inside docstrings for a function and test them to make sure they work
+- You can have pytest look for and run doctest tests within your Python code by using the `--doctest-modules` flag
+- With the `doctest_namespace` fixture, you can build `autouse` fixtures to add symbols to the namespace pytest uses while running doctest tests
+  - commonly used to add module imports into the namespace
+- See: [`3/unnecessary_math.py`](ch4/dt/3/unnecessary_math.py)
+  - since the name `unnecessary_math` is long, we decide to use `um` instead by using `import unnecessary_math as um` in the top docstring
+  - code in the docstrings of the functions doesn't include the `import` statement, but continue with the `um` convention
+  - the problem is that pytest treats each docstring with code as a different test
+- `doctest_namespace`, used in an `autouse` fixture at a top-level `conftest.py` file, will fix the problem without changing the source code
+  - see: [`3/conftest.py`](ch4/dt/3/conftest.py)
+  - any doctests found within the scope of this `conftest.py` file will have the `um` symbol defined
+
+```console
+$ pytest -v --doctest-modules dt/3/unnecessary_math.py
+============================= test session starts ==============================
+...
+collected 3 items
+
+dt/3/unnecessary_math.py::unnecessary_math PASSED                        [ 33%]
+dt/3/unnecessary_math.py::unnecessary_math.divide PASSED                 [ 66%]
+dt/3/unnecessary_math.py::unnecessary_math.multiply PASSED               [100%]
+
+============================== 3 passed in 0.02s ===============================
+```
+
+### Using `recwarn`
+
+- Warnings work a lot like assertions, but are used for things that don't need to stop execution
+- The `recwarn` fixture is used to examine warnings generated by code under test
+  - see: [`ch4/test_warnings.py`](ch4/test_warnings.py)
+- The `recwarn` value acts like a list of warnings, and each warning in the list has a `category`, `message`, `filename`, and `lineno` defined
+- The warnings are collected at the beginning of the test
+  - if that is inconvenient because the portion of the test where you care about warnings is near the end, you can use `recwarn.clear()` to clear out the list before the chunk of the test where you do care about collecting warnings
+- pytest can also check for warnings with `pytest.warns()`
+
+```python
+with pytest.warns(None) as warning_list:
+    lame_function()
+```
+
+- `recwarn` and the `pytest.warns()` context manager provide similar functionality, so the decision of which to use is purely a matter of taste
 
 ## Sources
 

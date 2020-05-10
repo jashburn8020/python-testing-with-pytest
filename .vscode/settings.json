@@ -3,7 +3,8 @@
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
     "cSpell.ignoreWords": [
-        "asdict"
+        "asdict",
+        "builtin"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

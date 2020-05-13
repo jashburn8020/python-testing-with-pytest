@@ -44,12 +44,25 @@
     - [Using `monkeypatch`](#using-monkeypatch)
     - [Using `doctest_namespace`](#using-doctest_namespace)
     - [Using `recwarn`](#using-recwarn)
+  - [Plugins](#plugins)
+    - [Finding Plugins](#finding-plugins)
+    - [Installing Plugins](#installing-plugins)
+      - [Install from PyPI](#install-from-pypi)
+      - [Install from a .tar.gz or .whl](#install-from-a-targz-or-whl)
+      - [Install from a Local Directory](#install-from-a-local-directory)
+      - [Install from a Git Repository](#install-from-a-git-repository)
+    - [Writing Your Own Plugins](#writing-your-own-plugins)
+    - [Creating an Installable Plugin](#creating-an-installable-plugin)
+    - [Testing Plugins](#testing-plugins)
+    - [Creating a Distribution](#creating-a-distribution)
+      - [Distributing Plugins Through a Shared Directory](#distributing-plugins-through-a-shared-directory)
+      - [Distributing Plugins Through PyPI](#distributing-plugins-through-pypi)
   - [Sources](#sources)
 
 ## Getting Started with pytest
 
 ```console
-​$ ​​pytest​​ ​​--help​
+​$ $ pippytest --help​
 usage: pytest [options] [file_or_dir] [file_or_dir] [...]
 ...
 ```
@@ -66,7 +79,7 @@ usage: pytest [options] [file_or_dir] [file_or_dir] [...]
   - see: _Configuration_
 - Running only one test:
   - `pytest <directory>/<file.py>::<test_name>`
-  - e.g., `​​pytest​​ ​​​​tasks/test_four.py::test_asdict`
+  - e.g., `$ pippytest $ piptasks/test_four.py::test_asdict`
 
 ### Using Options
 
@@ -76,7 +89,7 @@ usage: pytest [options] [file_or_dir] [file_or_dir] [...]
   - e.g., when used in conjunction with `-k`
 - `-k`
   - use an expression to find what test functions to run
-  - e.g., `pytest​​ ​​-k​​ ​​"asdict or defaults"​​`
+  - e.g., `pytest -k "asdict or defaults"$ pip`
     - run the `test_asdict()` and `test_defaults()` tests
 - `-m MARKEXPR`
   - markers allow you to mark a subset of your test functions so that they can be run together
@@ -247,8 +260,8 @@ FAILED tests/test_s_option.py::test_fail - assert 1 == 2
 - Run tests:
 
 ```console
-​$ ​​cd​​ ​​/path/to/code/ch2/tasks_proj/tests/unit​
-$ ​​pytest​​ ​​test_task.py​
+​$ $ pipcd /path/to/code/ch2/tasks_proj/tests/unit​
+$ $ pippytest test_task.py​
 ```
 
 ### Using `assert` Statements
@@ -474,7 +487,7 @@ xfail_strict=true
 #### A Single Directory
 
 - To run all the tests from one directory, use the directory as a parameter to pytest
-  - `​​​pytest​​ ​​tests/func`
+  - `$ pip​pytest tests/func`
 
 ```console
 $ pytest --disable-warnings -v tests/func
@@ -500,12 +513,12 @@ tests/func/test_api_exceptions.py::test_start_tasks_db_raises PASSED     [ 82%]
 #### A Single Test File/Module
 
 - To run a file full of tests, list the file with the relative path as a parameter
-  - `pytest​​ ​​tests/func/test_add.py`
+  - `pytest tests/func/test_add.py`
 
 #### A Single Test Function
 
 - To run a single test function, add `::` and the test function name
-  - `pytest​​​ ​​tests/func/test_add.py::test_add_returns_valid_id​`
+  - `pytest​ tests/func/test_add.py::test_add_returns_valid_id​`
 
 #### A Single Test Class
 
@@ -526,12 +539,12 @@ class TestUpdate:
 ```
 
 - To run just this class, add `::`, then the class name to the file parameter
-  - `pytest​​ ​​tests/func/test_api_exceptions.py::TestUpdate​`
+  - `pytest tests/func/test_api_exceptions.py::TestUpdate​`
 
 #### A Single Test Method of a Test Class
 
 - If you want to run just one method, add another `::` and the method name
-  - `​​pytest​​ ​​tests/func/test_api_exceptions.py::TestUpdate::test_bad_id​`
+  - `$ pippytest tests/func/test_api_exceptions.py::TestUpdate::test_bad_id​`
 
 #### A Set of Tests Based on Test Name
 
@@ -1448,6 +1461,204 @@ with pytest.warns(None) as warning_list:
 ```
 
 - `recwarn` and the `pytest.warns()` context manager provide similar functionality, so the decision of which to use is purely a matter of taste
+
+## Plugins
+
+- The pytest code base is structured with customization and extensions, and there are hooks available to allow modifications and improvements through plugins
+
+### Finding Plugins
+
+- <https://docs.pytest.org/en/latest/plugins.html>
+  - lists a few common plugins
+- <https://pypi.python.org>
+  - the Python Package Index (PyPI) is a great place to find pytest plugins
+  - enter "pytest," "pytest-," or "-pytest" into the search box
+- <https://github.com/pytest-dev>
+  - you can find some popular pytest plugins that are intended to be maintained long-term by the pytest core team
+
+### Installing Plugins
+
+#### Install from PyPI
+
+- As PyPI is the default location for pip, installing plugins from PyPI is the easiest method
+
+```console
+$ pip install pytest-cov​
+```
+
+- This installs the latest stable version from PyPI.
+
+#### Install from a .tar.gz or .whl
+
+- File Packages on PyPI are distributed as zipped files with the extensions `.tar.gz` (tar balls) and/or `.whl` (wheels)
+  - you can download and install from that
+
+```console
+$ pip install pytest-cov-2.4.0.tar.gz​
+​# or
+$ pip install pytest_cov-2.4.0-py2.py3-none-any.whl​
+```
+
+#### Install from a Local Directory
+
+- You can keep a local stash of plugins (and other Python packages) in a local or shared directory in `.tar.gz` or `.whl` format, and use that instead
+
+```console
+$ cp pytest_cov-2.4.0-py2.py3-none-any.whl some_plugins/​
+$ pip install --no-index --find-links=./some_plugins/ pytest-cov​
+```
+
+- `--no-index` tells `pip` to not connect to PyPI
+- `--find-links=./some_plugins/` tells `pip` to look in the directory called some_plugins
+
+#### Install from a Git Repository
+
+```console
+$ pip install git+https://github.com/pytest-dev/pytest-cov
+```
+
+- With version tag:
+
+```console
+$ pip install git+https://github.com/pytest-dev/pytest-cov@v2.4.0​
+```
+
+- Specify a branch:
+
+```console
+$ pip install git+https://github.com/pytest-dev/pytest-cov@master​
+```
+
+### Writing Your Own Plugins
+
+- Plugins can include hook functions that alter pytest's behavior
+- A lot of hook functions are available
+  - see:
+    - <https://docs.pytest.org/en/latest/_modules/_pytest/hookspec.html>
+    - <https://docs.pytest.org/en/latest/reference.html#hooks>
+- Frequently, changes you only intended to use on one project will become useful enough to share and grow into a plugin
+  - therefore, we'll start by adding functionality to a `conftest.py` file, then, after we get things working in `conftest.py,` we'll move the code to a package
+- See: [`func/test_api_exceptions.py`](ch5/a/tasks_proj/tests/func/test_api_exceptions.py)
+
+```console
+$ pytest -v --tb=no func/test_api_exceptions.py::TestAdd
+============================= test session starts ==============================
+...
+collected 2 items
+
+func/test_api_exceptions.py::TestAdd::test_missing_summary PASSED        [ 50%]
+func/test_api_exceptions.py::TestAdd::test_done_not_bool FAILED          [100%]
+```
+
+- Changes:
+  - see: [`tests/conftest.py`](ch5/c/tasks_proj/tests/conftest.py)
+  - add "Thanks for running the tests" to the header
+    - [`pytest_report_header()`](https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_report_header)
+  - change FAILED status indicators (`F`) to "OPPORTUNITY for improvement" (`O`)
+    - [`pytest_report_teststatus(report)`](https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_report_teststatus)
+  - use the `--nice` option to turn the behavior on
+    - [`pytest_addoption(parser)`](https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_addoption)
+
+```console
+$ pytest --nice --tb=no func/test_api_exceptions.py::TestAdd
+============================= test session starts ==============================
+...
+Thanks for running the tests.
+...
+collected 2 items
+
+func/test_api_exceptions.py .O                                           [100%]
+
+=============================== warnings summary ===============================
+...
+=========================== short test summary info ============================
+OPPORTUNITY for improvement func/test_api_exceptions.py::TestAdd::test_done_not_bool
+=================== 1 failed, 1 passed, 3 warnings in 0.26s ====================
+```
+
+```console
+$ pytest --nice -v --tb=no func/test_api_exceptions.py::TestAdd
+============================= test session starts ==============================
+...
+Thanks for running the tests.
+...
+collected 2 items
+
+func/test_api_exceptions.py::TestAdd::test_missing_summary PASSED        [ 50%]
+func/test_api_exceptions.py::TestAdd::test_done_not_bool OPPORTUNITY for improvement [100%]
+
+=============================== warnings summary ===============================
+...
+=========================== short test summary info ============================
+OPPORTUNITY for improvement func/test_api_exceptions.py::TestAdd::test_done_not_bool
+=================== 1 failed, 1 passed, 3 warnings in 0.25s ====================
+```
+
+### Creating an Installable Plugin
+
+- Directory structure:
+
+```text
+pytest-nice
+​├── LICENSE
+​├── README.rst
+​├── pytest_nice.py
+​├── setup.py
+└── tests
+    ├── conftest.py
+    └── test_nice.py
+```
+
+- See:
+  - [`pytest-nice/pytest_nice.py`](ch5/pytest-nice/pytest_nice.py)
+  - [`pytest-nice/setup.py`](ch5/pytest-nice/setup.py)
+  - [`pytest-nice/README.rst`](ch5/pytest-nice/README.rst)
+    - Some form of README is a requirement by `setuptools`
+
+### Testing Plugins
+
+- Test a plugin using a plugin called `pytester` that ships with pytest but is disabled by default
+  - to use `pytester`, we need to add just one line to `conftest.py`
+  - a fixture called `testdir` becomes available when pytester is enabled
+  - see: [`tests/conftest.py`](ch5/pytest-nice/tests/conftest.py)
+- Tests: [`tests/test_nice.py`](ch5/pytest-nice/tests/test_nice.py)
+- To run the tests:
+
+```console
+$ cd /path/to/ch5/pytest-nice/
+$ pip install .
+...
+$ pytest -v
+...
+```
+
+- We can uninstall it just like any other Python package or pytest plugin
+  - `​​pip​​ ​​uninstall​​ ​​pytest-nice​`
+
+### Creating a Distribution
+
+- We can use the `setup.py` file to create a distribution
+
+```console
+$ cd /path/to/ch5/pytest-nice/
+$ python setup.py sdist
+...
+$ ls dist
+pytest-nice-0.1.0.tar.gz
+```
+
+- Note: `sdist` stands for "source distribution"
+
+#### Distributing Plugins Through a Shared Directory
+
+- See: [Install from a Local Directory](#install-from-a-local-directory)
+- If you've done some bug fixes and there are newer versions in myplugins, you can upgrade by adding `--upgrade`:
+  - `pip install --upgrade --no-index --find-links myplugins pytest-nice`
+
+#### Distributing Plugins Through PyPI
+
+- When you are contributing a pytest plugin, a great place to start is by using the `cookiecutter-pytest-plugin`
+  - see <https://github.com/pytest-dev/cookiecutter-pytest-plugin>
 
 ## Sources
 

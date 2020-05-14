@@ -57,6 +57,16 @@
     - [Creating a Distribution](#creating-a-distribution)
       - [Distributing Plugins Through a Shared Directory](#distributing-plugins-through-a-shared-directory)
       - [Distributing Plugins Through PyPI](#distributing-plugins-through-pypi)
+  - [Configuration](#configuration)
+    - [Understanding pytest Configuration Files](#understanding-pytest-configuration-files)
+    - [Changing the Default Command-Line Options](#changing-the-default-command-line-options)
+    - [Registering Markers to Avoid Marker Typos](#registering-markers-to-avoid-marker-typos)
+    - [Requiring a Minimum pytest Version](#requiring-a-minimum-pytest-version)
+    - [Stopping pytest from Looking in the Wrong Places](#stopping-pytest-from-looking-in-the-wrong-places)
+    - [Specifying Test Directory Locations](#specifying-test-directory-locations)
+    - [Changing Test Discovery Rules](#changing-test-discovery-rules)
+    - [Disallowing XPASS](#disallowing-xpass)
+    - [Avoiding Filename Collisions](#avoiding-filename-collisions)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -1659,6 +1669,127 @@ pytest-nice-0.1.0.tar.gz
 
 - When you are contributing a pytest plugin, a great place to start is by using the `cookiecutter-pytest-plugin`
   - see <https://github.com/pytest-dev/cookiecutter-pytest-plugin>
+
+## Configuration
+
+### Understanding pytest Configuration Files
+
+- `pytest.ini`
+  - primary pytest configuration file that allows you to change default behavior
+- `conftest.py`
+  - local plugin to allow hook functions and fixtures for the directory where the `conftest.py` file exists and all subdirectories
+- `__init__.py`
+  - when put into every test subdirectory, this file allows you to have identical test filenames in multiple test directories
+- If you use tox, `tox.ini`
+  - similar to `pytest.ini`, but for tox
+  - you can put your pytest configuration here instead of having both a `tox.ini` and a `pytest.ini` file
+- If you want to distribute a Python package, `setup.cfg`
+  - in `ini` file format and affects the behavior of `setup.py`
+  - possible to add a couple of lines to `setup.py` to allow you to run python `setup.py test` and have it run all of your pytest tests
+  - if you are distributing a package, you may already have a `setup.cfg` file, and you can use that file to store pytest configuration
+- You can get a list of all the valid settings for `pytest.ini` from `pytest --help`
+- It is possible for plugins (and `conftest.py` files) to add `ini` file options
+  - the added options will be added to the pytest `--help` output as well
+
+### Changing the Default Command-Line Options
+
+- To always use some command line options for a project, set `addopts` in `pytest.ini` to the options you want:
+
+```ini
+[pytest]
+addopts = -rsxX -l --tb=short --strict
+```
+
+### Registering Markers to Avoid Marker Typos
+
+- It's too easy to misspell a marker and end up having some tests with different markers, e.g., `@pytest.mark.smoke` and `@pytest.mark.somke`
+- Register markers in `pytest.ini`
+  - see: [`tests/pytest.ini`](ch6/b/tasks_proj/tests/pytest.ini)
+  - if you use the `--strict` command line option, any misspelled or unregistered markers show up as an error
+
+```ini
+[pytest]
+  smoke: Run the smoke test functions for tasks project
+  get: Run the test functions that test tasks.get()
+```
+
+```console
+$ pytest --markers
+@pytest.mark.smoke: Run the smoke test test functions
+
+@pytest.mark.get: Run the test functions that test tasks.get()
+
+@pytest.mark.filterwarnings(warning): add a warning filter to the given test. see https://docs.pytest.org/en/latest/warnings.html#pytest-mark-filterwarnings
+```
+
+### Requiring a Minimum pytest Version
+
+- The `minversion` setting enables you to specify a minimum pytest version you expect for your tests
+  - `approx()` for testing floating point numbers for was introduced into pytest version 3.0
+
+```ini
+[pytest]
+minversion = 3.0
+```
+
+### Stopping pytest from Looking in the Wrong Places
+
+- Test discovery traverses many directories recursively
+  - there are some directories you don't want pytest looking in
+- The default setting for `norecursedirs` is `.* build dist CVS _darcs {arch}` and `*.egg`
+  - you can add `venv` and `src`
+
+```ini
+norecursedirs = .* venv src *.egg dist build
+```
+
+### Specifying Test Directory Locations
+
+- Opposite to `norecursedirs`, `testpaths` tells pytest where to look
+  - a list of directories relative to the root directory
+- Example:
+
+```text
+tasks_proj/
+​├── pytest.ini
+​├── src
+│   └── ...
+​└── tests
+​    └── ...
+```
+
+```ini
+[pytest]
+testpaths = tests
+```
+
+### Changing Test Discovery Rules
+
+- Standard test discovery rules:
+  - start at one or more directory
+    - you can specify filenames or directory names on the command line
+    - if you don't specify anything, the current directory is used
+  - look in the directory and all subdirectories recursively for test modules
+    - a test module is a file with a name that looks like `test_*.py` or `*_test.py`
+  - look in test modules for functions that start with `test_`
+  - look for classes that start with `Test`
+    - look for methods in those classes that start with `test_` but don't have an `__init__` method
+- `python_classes`, `python_files` and `python_functions` allow us to name test classes, files and function/method names something else
+
+```ini
+[pytest]
+python_classes = *Test Test* *Suite
+python_files = test_* *_test check_*
+python_functions = test_* check_*
+```
+
+### Disallowing XPASS
+
+- Setting `xfail_strict = true` causes tests marked with `@pytest.mark.xfail` that don't fail to be reported as an error
+
+### Avoiding Filename Collisions
+
+- If you have empty `__init__.py` files in all of your test subdirectories, you can have the same test filename show up in multiple directories
 
 ## Sources
 

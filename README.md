@@ -67,6 +67,11 @@
     - [Changing Test Discovery Rules](#changing-test-discovery-rules)
     - [Disallowing XPASS](#disallowing-xpass)
     - [Avoiding Filename Collisions](#avoiding-filename-collisions)
+  - [Using pytest with Other Tools](#using-pytest-with-other-tools)
+    - [pdb: Debugging Test Failures](#pdb-debugging-test-failures)
+    - [Coverage.py: Determining How Much Code Is Tested](#coveragepy-determining-how-much-code-is-tested)
+    - [mock: Swapping Out Part of the System](#mock-swapping-out-part-of-the-system)
+    - [tox: Testing Multiple Configurations](#tox-testing-multiple-configurations)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -1790,6 +1795,228 @@ python_functions = test_* check_*
 ### Avoiding Filename Collisions
 
 - If you have empty `__init__.py` files in all of your test subdirectories, you can have the same test filename show up in multiple directories
+
+## Using pytest with Other Tools
+
+### pdb: Debugging Test Failures
+
+- pytest options available to help speed up debugging test failures:
+  - `--tb=[auto/long/short/line/native/no]`: Controls the traceback style
+  - `-v / --verbose`: Displays all the test names, passing or failing
+  - `-l / --showlocals`: Displays local variables alongside the stacktrace
+  - `-lf / --last-failed`: Runs just the tests that failed last
+  - `-x / --exitfirst`: Stops the tests session with the first failure
+  - `--pdb`: Starts an interactive debugging session at the point of failure
+- Commands that you can use when you are at the `(Pdb)` prompt:
+  - `p/print expr`: Prints the value of `expr`
+  - `pp expr`: Pretty prints the value of `expr`
+  - `l/list`: Lists the point of failure and five lines of code above and below
+  - `l/list begin,end`: Lists specific line numbers
+  - `a/args`: Prints the arguments of the current function with their values (helpful when in a test helper function)
+  - `u/up`: Moves up one level in the stack trace
+  - `d/down`: Moves down one level in the stack trace
+  - `q/quit`: Quits the debugging session
+  - other navigation commands like `step` and `next` aren't that useful since we are sitting right at an `assert` statement
+  - you can also just type variable names and get the values
+
+```console
+$ pytest -x --pdb ch2/tasks_proj/tests
+============================= test session starts ==============================
+...
+collected 56 items
+
+ch2/tasks_proj/tests/func/test_add.py ..                                 [  3%]
+ch2/tasks_proj/tests/func/test_add_variety.py .......................... [ 50%]
+......                                                                   [ 60%]
+ch2/tasks_proj/tests/func/test_api_exceptions.py .......                 [ 73%]
+ch2/tasks_proj/tests/func/test_unique_id_1.py F
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> traceback >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+    def test_unique_id():
+        """Calling unique_id() twice should return different numbers."""
+        id_1 = tasks.unique_id()
+        id_2 = tasks.unique_id()
+>       assert id_1 != id_2
+E       assert 1 != 1
+
+ch2/tasks_proj/tests/func/test_unique_id_1.py:11: AssertionError
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> entering PDB >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+>>>>>>>>>>>>>>>>>> PDB post_mortem (IO-capturing turned off) >>>>>>>>>>>>>>>>>>>
+> /path/to/ch2/tasks_proj/tests/func/test_unique_id_1.py(11)test_unique_id()
+-> assert id_1 != id_2
+(Pdb) p tasks.unique_id()
+1
+(Pdb) id_1
+1
+(Pdb) id_2
+1
+(Pdb) l
+  6
+  7  	def test_unique_id():
+  8  	    """Calling unique_id() twice should return different numbers."""
+  9  	    id_1 = tasks.unique_id()
+ 10  	    id_2 = tasks.unique_id()
+ 11  ->	    assert id_1 != id_2
+ 12
+ 13
+ 14  	@pytest.fixture(autouse=True)
+ 15  	def initialized_tasks_db(tmpdir):
+ 16  	    """Connect to db before testing, disconnect after."""
+(Pdb) u
+> /path/to/venv/lib/python3.6/site-packages/_pytest/python.py(184)pytest_pyfunc_call()
+-> result = testfunction(**testargs)
+(Pdb) a
+pyfuncitem = <Function test_unique_id>
+(Pdb) d
+> /path/to/ch2/tasks_proj/tests/func/test_unique_id_1.py(11)test_unique_id()
+-> assert id_1 != id_2
+(Pdb) q
+
+
+=============================== warnings summary ===============================
+...
+=========================== short test summary info ============================
+FAILED ch2/tasks_proj/tests/func/test_unique_id_1.py::test_unique_id - assert...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!! _pytest.outcomes.Exit: Quitting debugger !!!!!!!!!!!!!!!!!!!
+============= 1 failed, 41 passed, 4 warnings in 60.26s (0:01:00) ==============
+```
+
+### Coverage.py: Determining How Much Code Is Tested
+
+- Coverage.py is the preferred Python coverage tool that measures code coverage
+- Installing `pytest-cov` plugin will pull in `coverage.py` since coverage is one its dependencies
+  - `pip install pytest-cov`
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+coverage reporting with distributed testing support:
+  --cov=[SOURCE]        Path or package name to measure during execution (multi-
+                        allowed). Use --cov= to not do any source filtering and
+                        record everything.
+  --cov-report=TYPE     Type of report to generate: term, term-missing,
+                        annotate, html, xml (multi-allowed). term, term-missing
+                        may be followed by ":skip-covered". annotate, html and
+                        xml may be followed by ":DEST" where DEST specifies the
+                        output location. Use --cov-report= to not generate any
+                        output.
+  --cov-config=PATH     Config file for coverage. Default: .coveragerc
+  --no-cov-on-fail      Do not report coverage if test run fails. Default: False
+  --no-cov              Disable coverage report completely (useful for
+                        debuggers). Default: False
+  --cov-fail-under=MIN  Fail if the total coverage is less than MIN.
+  --cov-append          Do not delete coverage but append to current. Default:
+                        False
+  --cov-branch          Enable branch coverage.
+  --cov-context=CONTEXT
+                        Dynamic contexts to use. "test" for now.
+```
+
+```console
+$ pytest --cov=src
+============================= test session starts ==============================
+...
+plugins: cov-2.8.1, mock-3.1.0
+collected 62 items
+
+tests/func/test_add.py ...                                               [  4%]
+tests/func/test_add_variety.py ............................              [ 50%]
+tests/func/test_add_variety2.py ............                             [ 69%]
+tests/func/test_api_exceptions.py .........                              [ 83%]
+tests/func/test_unique_id.py .                                           [ 85%]
+tests/unit/test_cli.py .....                                             [ 93%]
+tests/unit/test_task.py ....                                             [100%]
+
+----------- coverage: platform linux, python 3.6.9-final-0 -----------
+Name                           Stmts   Miss  Cover
+--------------------------------------------------
+src/tasks/__init__.py              2      0   100%
+src/tasks/api.py                  79     22    72%
+src/tasks/cli.py                  45     14    69%
+src/tasks/config.py               18     12    33%
+src/tasks/tasksdb_pymongo.py      74     74     0%
+src/tasks/tasksdb_tinydb.py       32      4    88%
+--------------------------------------------------
+TOTAL                            250    126    50%
+
+
+============================== 62 passed in 5.14s ==============================
+```
+
+### mock: Swapping Out Part of the System
+
+- The `mock` package is shipped as part of the Python standard library as `unittest.mock` as of Python 3.3
+- For use with pytest, a plugin called `pytest-mock` has some conveniences
+- `list_tasks(owner)` in [`tasks/cli.py`](ch7/tasks_proj_v2/src/tasks/cli.py)
+  - depends on a couple of other functions
+    - `tasks_db()`, which is a context manager
+    - `tasks.list_tasks(owner)`, which is the API function in [`tasks/api.py`](ch7/tasks_proj_v2/src/tasks/api.py)
+  - use mock to put fake functions in place for `tasks_db()` and `tasks.list_tasks()`
+    - we can call the `list_tasks` method through the command-line interface and make sure it
+      - calls the `tasks.list_tasks()` function correctly
+      - deals with the return value correctly
+- Stub `_tasks_db()`
+  - see `stub_tasks_db()` in [`unit/test_cli.py`](ch7/tasks_proj_v2/tests/unit/test_cli.py)
+- Use `mocker` to replace the real context manager with our stub
+  - `mocker` is a fixture provided by the `pytest-mock` plugin a convenience interface to `unittest.mock`
+  - see `test_list_no_args(mocker)` in [`unit/test_cli.py`](ch7/tasks_proj_v2/tests/unit/test_cli.py)
+- The `MagicMock` class is a flexible subclass of `unittest.Mock` with reasonable default behavior and the ability to specify a return value
+- The `Mock` and `MagicMock` classes (and others) are used to mimic the interface of other code with introspection methods built in to allow you to ask them how they were called
+
+```python
+@contextmanager
+def stub_tasks_db():
+    yield
+
+
+def test_list_no_args(mocker):
+    # Replace the _tasks_db() context manager with our stub that does nothing.
+    mocker.patch.object(tasks.cli, "_tasks_db", new=stub_tasks_db)
+
+    # Replace any calls to tasks.list_tasks() from within tasks.cli to a default
+    # MagicMock object with a return value of an empty list.
+    mocker.patch.object(tasks.cli.tasks, "list_tasks", return_value=[])
+
+    # Use the Click CliRunner to do the same thing as calling tasks list on the command
+    # line.
+    runner = CliRunner()
+    runner.invoke(tasks.cli.tasks_cli, ["list"])
+
+    # Use the mock object to make sure the API call was called correctly.
+    # assert_called_once_with() is part of unittest.mock.Mock objects.
+    tasks.cli.tasks.list_tasks.assert_called_once_with(None)
+```
+
+- See:
+  - <https://docs.python.org/dev/library/unittest.mock.html>
+  - <https://pypi.org/project/pytest-mock/>
+
+### tox: Testing Multiple Configurations
+
+- tox is a command-line tool that allows you to run your complete suite of tests in multiple environments
+- You can use it to test with different
+  - versions of Python
+  - dependency configurations
+  - configurations for different operating systems
+- tox uses the `setup.py` file for the package under test to create an installable source distribution of your package
+- It looks in `tox.ini` for a list of environments and then for each environment, tox:
+  - creates a virtual environment in a `.tox` directory
+  - `pip` installs some dependencies
+  - `pip` installs your package from the `sdist`
+  - runs your tests
+  - reports a summary of how they all did
+- Add a `tox.ini` file at the same level as `setup.py` - the top project directory
+  - move anything that's in `pytest.ini` into `tox.ini`
+  - see [`tasks_proj_v2/tox.ini`](ch7/tasks_proj_v2/tox.ini)
+- Install tox (can be done within a virtual environment):
+  - `pip install tox`
+- Run tox:
+  - `tox`
+- See: <https://tox.readthedocs.io/en/latest/>
 
 ## Sources
 

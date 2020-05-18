@@ -72,6 +72,23 @@
     - [Coverage.py: Determining How Much Code Is Tested](#coveragepy-determining-how-much-code-is-tested)
     - [mock: Swapping Out Part of the System](#mock-swapping-out-part-of-the-system)
     - [tox: Testing Multiple Configurations](#tox-testing-multiple-configurations)
+  - [Plugin Sampler Pack](#plugin-sampler-pack)
+    - [Plugins That Change the Normal Test Run Flow](#plugins-that-change-the-normal-test-run-flow)
+      - [pytest-repeat: Run Tests More Than Once](#pytest-repeat-run-tests-more-than-once)
+      - [pytest-xdist: Run Tests in Parallel](#pytest-xdist-run-tests-in-parallel)
+      - [pytest-timeout: Put Time Limits on Your Tests](#pytest-timeout-put-time-limits-on-your-tests)
+    - [Plugins That Alter or Enhance Output](#plugins-that-alter-or-enhance-output)
+      - [pytest-instafail: See Details of Failures and Errors as They Happen](#pytest-instafail-see-details-of-failures-and-errors-as-they-happen)
+      - [pytest-sugar: Instafail + Colors + Progress Bar](#pytest-sugar-instafail--colors--progress-bar)
+      - [pytest-emoji: Add Some Fun to Your Tests](#pytest-emoji-add-some-fun-to-your-tests)
+      - [pytest-html: Generate HTML Reports for Test Sessions](#pytest-html-generate-html-reports-for-test-sessions)
+    - [Plugins for Static Analysis](#plugins-for-static-analysis)
+      - [pytest-pycodestyle, pytest-pep8: Comply with Python's Style Guide](#pytest-pycodestyle-pytest-pep8-comply-with-pythons-style-guide)
+      - [pytest-flake8: Check for Style Plus Linting](#pytest-flake8-check-for-style-plus-linting)
+    - [Plugins for Web Development](#plugins-for-web-development)
+      - [pytest-selenium: Test with a Web Browser](#pytest-selenium-test-with-a-web-browser)
+      - [pytest-django: Test Django Applications](#pytest-django-test-django-applications)
+      - [pytest-flask: Test Flask Applications](#pytest-flask-test-flask-applications)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -2017,6 +2034,379 @@ def test_list_no_args(mocker):
 - Run tox:
   - `tox`
 - See: <https://tox.readthedocs.io/en/latest/>
+
+## Plugin Sampler Pack
+
+- All of the plugins featured here are available on PyPI and are installed with `pip install <plugin-name>`
+
+### Plugins That Change the Normal Test Run Flow
+
+#### pytest-repeat: Run Tests More Than Once
+
+- To run tests more than once per session, use the `pytest-repeat` plugin
+- This plugin is useful if you have an intermittent failure in a test
+- You can use `--count=2` to run everything twice
+- See: <https://pypi.org/project/pytest-repeat/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+custom options:
+  --count=COUNT         Number of times to repeat each test
+  --repeat-scope={function,class,module,session}
+                        Scope for repeating tests
+```
+
+```console
+$ pytest --count=2 -v -k test_list
+============================= test session starts ==============================
+...
+plugins: repeat-0.8.0, cov-2.8.1, mock-3.1.0
+collected 124 items / 112 deselected / 12 selected
+
+tests/func/test_api_exceptions.py::test_list_raises[1-2] PASSED          [  8%]
+tests/func/test_api_exceptions.py::test_list_raises[2-2] PASSED          [ 16%]
+tests/unit/test_cli.py::test_list_no_args[1-2] PASSED                    [ 25%]
+tests/unit/test_cli.py::test_list_no_args[2-2] PASSED                    [ 33%]
+tests/unit/test_cli.py::test_list_print_empty[1-2] PASSED                [ 41%]
+tests/unit/test_cli.py::test_list_print_empty[2-2] PASSED                [ 50%]
+tests/unit/test_cli.py::test_list_print_many_items[1-2] PASSED           [ 58%]
+tests/unit/test_cli.py::test_list_print_many_items[2-2] PASSED           [ 66%]
+tests/unit/test_cli.py::test_list_dash_o[1-2] PASSED                     [ 75%]
+tests/unit/test_cli.py::test_list_dash_o[2-2] PASSED                     [ 83%]
+tests/unit/test_cli.py::test_list_dash_dash_owner[1-2] PASSED            [ 91%]
+tests/unit/test_cli.py::test_list_dash_dash_owner[2-2] PASSED            [100%]
+
+====================== 12 passed, 112 deselected in 0.26s ======================
+```
+
+#### pytest-xdist: Run Tests in Parallel
+
+- If your tests do not need access to a shared resource, you could speed up test sessions by running multiple tests in parallel using the `pytest-xdist` plugin
+- You can specify multiple processors and run many tests in parallel
+- You can even push off tests onto other machines and use more than one computer
+- [`xdist/test_parallel.py`](appendices/xdist/test_parallel.py)
+  - a test that takes at least a second to run, with parametrization such that it runs ten times
+- See: <https://pypi.org/project/pytest-xdist/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+distributed and subprocess testing:
+  -n numprocesses, --numprocesses=numprocesses
+                        shortcut for '--dist=load --tx=NUM*popen', you can use
+                        'auto' here for auto detection CPUs number on host
+                        system and it will be 0 when used with --pdb
+  --maxprocesses=maxprocesses
+                        limit the maximum number of workers to process the tests
+                        when using --numprocesses=auto
+  --max-worker-restart=MAXWORKERRESTART, --max-slave-restart=MAXWORKERRESTART
+                        maximum number of workers that can be restarted when
+                        crashed (set to zero to disable this feature) '--max-
+                        slave-restart' option is deprecated and will be removed
+                        in a future release
+  --dist=distmode       set mode for distributing tests to exec environments.
+                        each: send each test to all available environments.
+                        load: load balance by sending any pending test to any
+                        available environment. loadscope: load balance by
+                        sending pending groups of tests in the same scope to any
+                        available environment. loadfile: load balance by sending
+                        test grouped by file to any available environment.
+                        (default) no: run tests inprocess, don't distribute.
+  --tx=xspec            add a test execution environment. some examples: --tx
+                        popen//python=python2.5 --tx socket=192.168.1.102:8888
+                        --tx ssh=user@codespeak.net//chdir=testcache
+  -d                    load-balance tests. shortcut for '--dist=load'
+  --rsyncdir=DIR        add directory for rsyncing to remote tx nodes.
+  --rsyncignore=GLOB    add expression for ignores when rsyncing to remote tx
+                        nodes.
+  --boxed               backward compatibility alias for pytest-forked --forked
+  --testrunuid=TESTRUNUID
+                        provide an identifier shared amongst all workers as the
+                        value of the 'testrun_uid' fixture, ,if not provided,
+                        'testrun_uid' is filled with a new unique string on
+                        every test run.
+  -f, --looponfail      run tests in subprocess, wait for modified files and re-
+                        run failing test set until all pass.
+```
+
+```console
+$ pytest test_parallel.py
+============================= test session starts ==============================
+plugins: xdist-1.32.0, forked-1.1.3, repeat-0.8.0, cov-2.8.1, mock-3.1.0
+collected 10 items
+
+test_parallel.py ..........                                              [100%]
+
+============================= 10 passed in 10.08s ==============================
+```
+
+- You can use
+  - `-n numprocesses` to run each test in a subprocess
+  - `-n auto` to automatically detect the number of CPUs on the system
+
+```console
+$ pytest -n auto test_parallel.py
+============================= test session starts ==============================
+plugins: xdist-1.32.0, forked-1.1.3, repeat-0.8.0, cov-2.8.1, mock-3.1.0
+gw0 [10] / gw1 [10] / gw2 [10] / gw3 [10] / gw4 [10] / gw5 ok / gw6 [10] / gw7 ogw0 [10] / gw1 [10] / gw2 [10] / gw3 [10] / gw4 [10] / gw5 ok / gw6 [10] / gw7 [gw0 [10] / gw1 [10] / gw2 [10] / gw3 [10] / gw4 [10] / gw5 [10] / gw6 [10] / gw7 [10]
+..........                                                               [100%]
+============================== 10 passed in 3.02s ==============================
+```
+
+#### pytest-timeout: Put Time Limits on Your Tests
+
+- The `pytest-timeout` plugin allows you pass a timeout period on the command line or mark individual tests with timeout periods in seconds
+  - the mark overrides the command line timeout
+    - `pytest.mark.timeout(timeout=0, method="thread|signal")`
+- See: <https://pypi.org/project/pytest-timeout/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+Interrupt test run and dump stacks of all threads after a test times out:
+  --timeout=TIMEOUT     Timeout in seconds before dumping the stacks. Default is
+                        0 which means no timeout.
+  --timeout_method={signal,thread}
+                        Deprecated, use --timeout-method
+  --timeout-method={signal,thread}
+                        Timeout mechanism to use. 'signal' uses SIGALRM if
+                        available, 'thread' uses a timer thread. The default is
+                        to use 'signal' and fall back to 'thread'.
+```
+
+```console
+$ pytest --timeout=0.5 -x test_parallel.py
+============================= test session starts ==============================
+...
+plugins: timeout-1.3.4, xdist-1.32.0, forked-1.1.3, repeat-0.8.0, cov-2.8.1, mock-3.1.0
+timeout: 0.5s
+timeout method: signal
+timeout func_only: False
+collected 10 items
+
+test_parallel.py F
+
+=================================== FAILURES ===================================
+______________________________ test_something[0] _______________________________
+
+x = 0
+
+    @pytest.mark.parametrize("x", list(range(10)))
+    def test_something(x):
+>       time.sleep(1)
+E       Failed: Timeout >0.5s
+
+test_parallel.py:7: Failed
+=========================== short test summary info ============================
+FAILED test_parallel.py::test_something[0] - Failed: Timeout >0.5s
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+============================== 1 failed in 0.60s ===============================
+```
+
+### Plugins That Alter or Enhance Output
+
+- These plugins don't change how test are run, but they do change the output you see
+
+#### pytest-instafail: See Details of Failures and Errors as They Happen
+
+- If your test suite takes quite a bit of time, you may want to see the tracebacks as they happen, rather than wait until the end
+- See: <https://pypi.org/project/pytest-instafail/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+reporting:
+  ...
+  --instafail           show failures and errors instantly as they occur
+                        (disabled by default).
+```
+
+```console
+$ pytest --instafail --timeout=0.5 --tb=line --maxfail=2 test_parallel.py
+============================= test session starts ==============================
+...
+plugins: cov-2.8.1, mock-3.1.0, instafail-0.4.1.post0
+timeout: 0.5s
+timeout method: signal
+timeout func_only: False
+collected 10 items
+
+test_parallel.py F
+
+/path/to/appendices/xdist/test_parallel.py:7: Failed: Timeout >0.5s
+
+test_parallel.py F
+
+/path/to/appendices/xdist/test_parallel.py:7: Failed: Timeout >0.5s
+
+=========================== short test summary info ============================
+FAILED test_parallel.py::test_something[0] - Failed: Timeout >0.5s
+FAILED test_parallel.py::test_something[1] - Failed: Timeout >0.5s
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+============================== 2 failed in 1.04s ===============================
+```
+
+#### pytest-sugar: Instafail + Colors + Progress Bar
+
+- Lets you see status not just as characters, but also in color
+- Also shows failure and error tracebacks during execution, and has a cool progress bar to the right of the shell
+- See: <https://pypi.org/project/pytest-sugar/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+reporting:
+  ...
+  --old-summary         Show tests that failed instead of one-line tracebacks
+  --force-sugar         Force pytest-sugar output even when not in real terminal
+```
+
+```console
+$ pytest test_parallel.py
+Test session starts (platform: linux, Python 3.6.9, pytest 5.4.1, pytest-sugar 0.9.3)
+...
+plugins: timeout-1.3.4, sugar-0.9.3, cov-2.8.1, mock-3.1.0
+collecting ...
+ test_parallel.py ✓✓✓✓✓✓✓✓✓✓                                     100% ██████████
+
+Results (10.09s):
+      10 passed
+```
+
+```console
+$ pytest --timeout=0.5 --tb=line --maxfail=2 test_parallel.py
+Test session starts (platform: linux, Python 3.6.9, pytest 5.4.1, pytest-sugar 0.9.3)
+...
+plugins: timeout-1.3.4, sugar-0.9.3, cov-2.8.1, mock-3.1.0
+timeout: 0.5s
+timeout method: signal
+timeout func_only: False
+collecting ...
+/home/jashburn/devel/sandbox/python/python-testing-with-pytest/appendices/xdist/test_parallel.py:7: Failed: Timeout >0.5s
+
+ test_parallel.py ⨯                                               10% █
+/home/jashburn/devel/sandbox/python/python-testing-with-pytest/appendices/xdist/test_parallel.py:7: Failed: Timeout >0.5s
+
+ test_parallel.py ⨯                                               20% ██
+=========================== short test summary info ============================
+FAILED test_parallel.py::test_something[0] - Failed: Timeout >0.5s
+FAILED test_parallel.py::test_something[1] - Failed: Timeout >0.5s
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Results (1.05s):
+       2 failed
+         - test_parallel.py:5 test_something[0]
+         - test_parallel.py:5 test_something[1]
+```
+
+#### pytest-emoji: Add Some Fun to Your Tests
+
+- Allows you to replace all of the test status characters with emojis
+- A small plugin and is a good example on which to base your own plugins
+- Allows you to change the emoji using hook functions
+  - one of the few pytest plugins that demonstrates how to add hook functions to plugin code
+- See: <https://pypi.org/project/pytest-emoji/>
+
+#### pytest-html: Generate HTML Reports for Test Sessions
+
+- Useful in conjunction with continuous integration, or in systems with large, long-running test suites
+- Creates a webpage to view the test results for a pytest session
+- See: <https://pypi.org/project/pytest-html/>
+
+```console
+$ pytest --help
+usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+
+...
+reporting:
+  ...
+  --html=path           create html report file at given path.
+  --self-contained-html
+                        create a self-contained html file containing all
+                        necessary styles, scripts, and images - this means that
+                        the report may not render or function where CSP
+                        restrictions are in place (see
+                        https://developer.mozilla.org/docs/Web/Security/CSP)
+  --css=path            append given css file content to report style file.
+```
+
+```console
+$ pytest --html=report.html
+============================= test session starts ==============================
+...
+plugins: metadata-1.9.0, timeout-1.3.4, cov-2.8.1, mock-3.1.0, html-2.1.1
+collected 6 items
+
+test_outcomes.py .FxXsE                                                  [100%]
+
+==================================== ERRORS ====================================
+_________________________ ERROR at setup of test_error _________________________
+
+    @pytest.fixture()
+    def flaky_fixture():
+>       assert 1 == 2
+E       assert 1 == 2
+
+test_outcomes.py:29: AssertionError
+=================================== FAILURES ===================================
+__________________________________ test_fail ___________________________________
+
+    def test_fail():
+>       assert 1 == 2
+E       assert 1 == 2
+
+test_outcomes.py:9: AssertionError
+- generated html file: file:///path/to/appendices/outcomes/report.html -
+=========================== short test summary info ============================
+FAILED test_outcomes.py::test_fail - assert 1 == 2
+ERROR test_outcomes.py::test_error - assert 1 == 2
+==== 1 failed, 1 passed, 1 skipped, 1 xfailed, 1 xpassed, 1 error in 0.16s =====
+```
+
+### Plugins for Static Analysis
+
+#### pytest-pycodestyle, pytest-pep8: Comply with Python's Style Guide
+
+- Use the `pytest-pycodestyle` plugin to run `pycodestyle` on code in your project, including test code, with the `--pycodestyle` flag
+
+#### pytest-flake8: Check for Style Plus Linting
+
+- With the `pytest-flake8` plugin, you can run all of your source code and test code through flake8 and get a failure if something isn't right
+  - checks for PEP 8, as well as for logic errors
+  - use the `--flake8` option to run `flake8` during a pytest session
+- You can extend flake8 with plugins that offer even more checks, such as `flake8-docstrings`
+
+### Plugins for Web Development
+
+#### pytest-selenium: Test with a Web Browser
+
+- The `pytest-selenium` plugin is the Python binding for Selenium
+- With it, you can
+  - launch a web browser and use it to open URLs
+  - exercise web applications
+  - fill out forms
+  - programmatically control the browser to test a web site or web application
+
+#### pytest-django: Test Django Applications
+
+- By default, the builtin testing support in Django is based on unittest
+- The `pytest-django` plugin allows you to use pytest instead of unittest
+  - includes helper functions and fixtures to speed up test implementation
+
+#### pytest-flask: Test Flask Applications
+
+- The `pytest-flask` plugin provides a handful of fixtures to assist in testing Flask applications
 
 ## Sources
 

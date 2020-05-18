@@ -89,6 +89,10 @@
       - [pytest-selenium: Test with a Web Browser](#pytest-selenium-test-with-a-web-browser)
       - [pytest-django: Test Django Applications](#pytest-django-test-django-applications)
       - [pytest-flask: Test Flask Applications](#pytest-flask-test-flask-applications)
+  - [Packaging and Distributing Python Projects](#packaging-and-distributing-python-projects)
+    - [Creating an Installable Module](#creating-an-installable-module)
+    - [Creating an Installable Package](#creating-an-installable-package)
+    - [Creating a Source Distribution and Wheel](#creating-a-source-distribution-and-wheel)
   - [Sources](#sources)
 
 ## Getting Started with pytest
@@ -2407,6 +2411,185 @@ ERROR test_outcomes.py::test_error - assert 1 == 2
 #### pytest-flask: Test Flask Applications
 
 - The `pytest-flask` plugin provides a handful of fixtures to assist in testing Flask applications
+
+## Packaging and Distributing Python Projects
+
+### Creating an Installable Module
+
+- For a simple one-module project, the minimal configuration is small
+
+```text
+​some_module_proj/
+​├── setup.py
+​└── some_module.py
+```
+
+- The code we want to share is in `some_module.py`
+- To make it installable with pip, we need a [`setup.py`](appendices/packaging/some_module_proj/setup.py) file
+
+```console
+$ pip install ./some_module_proj
+Processing ./some_module_proj
+Installing collected packages: some-module
+  Running setup.py install for some-module ... done
+Successfully installed some-module-0.0.0
+```
+
+```console
+$ python
+Python 3.6.9 (default, Apr 18 2020, 01:56:04)
+[GCC 8.4.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from some_module import some_func
+>>> some_func()
+42
+>>>
+```
+
+### Creating an Installable Package
+
+```text
+some_package_proj
+├── setup.py
+└── src
+    └── some_package
+        ├── __init__.py
+        └── some_module.py
+```
+
+- `__init__.py` needs to be written to expose the module functionality to the outside world through the package namespace
+  - see: <https://docs.python.org/3/tutorial/modules.html#packages>
+- If we do something like this in `__init__.py`:
+
+```python
+import some_package.some_module
+```
+
+- The client code will have to specify:
+
+```python
+import some_package
+some_package.some_module.some_func()
+```
+
+- [`some_package/__init__.py`](appendices/packaging/some_package_proj/src/some_package/__init__.py)
+  - expose everything in it to the package level
+  - client code can do this:
+
+```python
+import some_package
+some_package.some_func()
+```
+
+- [`some_package_proj/setup.py`](appendices/packaging/some_package_proj/setup.py)
+  - specify packages
+
+```console
+$ pip install ./some_package_proj/
+Processing ./some_package_proj
+Installing collected packages: some-package
+  Running setup.py install for some-package ... done
+Successfully installed some-package-0.0.0
+```
+
+```console
+$ python
+Python 3.6.9 (default, Apr 18 2020, 01:56:04)
+[GCC 8.4.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from some_package import some_func
+>>> some_func()
+42
+>>>
+```
+
+- You can add a `tests` directory at the same level of `src` to add our tests
+
+### Creating a Source Distribution and Wheel
+
+```text
+some_package_proj_v2/
+├── CHANGELOG.rst
+├── LICENSE
+├── README.rst
+├── setup.py
+└── src
+    └── some_package
+        ├── __init__.py
+        └── some_module.py
+```
+
+```console
+$ pip install --upgrade setuptools wheel
+```
+
+```console
+$ python setup.py sdist bdist_wheel
+running sdist
+running egg_info
+creating src/some_package.egg-info
+writing src/some_package.egg-info/PKG-INFO
+writing dependency_links to src/some_package.egg-info/dependency_links.txt
+writing top-level names to src/some_package.egg-info/top_level.txt
+writing manifest file 'src/some_package.egg-info/SOURCES.txt'
+reading manifest file 'src/some_package.egg-info/SOURCES.txt'
+writing manifest file 'src/some_package.egg-info/SOURCES.txt'
+running check
+creating some_package-1.0
+creating some_package-1.0/src
+creating some_package-1.0/src/some_package
+creating some_package-1.0/src/some_package.egg-info
+copying files to some_package-1.0...
+copying README.rst -> some_package-1.0
+copying setup.py -> some_package-1.0
+copying src/some_package/__init__.py -> some_package-1.0/src/some_package
+copying src/some_package/some_module.py -> some_package-1.0/src/some_package
+copying src/some_package.egg-info/PKG-INFO -> some_package-1.0/src/some_package.egg-info
+copying src/some_package.egg-info/SOURCES.txt -> some_package-1.0/src/some_package.egg-info
+copying src/some_package.egg-info/dependency_links.txt -> some_package-1.0/src/some_package.egg-info
+copying src/some_package.egg-info/top_level.txt -> some_package-1.0/src/some_package.egg-info
+Writing some_package-1.0/setup.cfg
+creating dist
+Creating tar archive
+removing 'some_package-1.0' (and everything under it)
+running bdist_wheel
+running build
+running build_py
+creating build
+creating build/lib
+creating build/lib/some_package
+copying src/some_package/some_module.py -> build/lib/some_package
+copying src/some_package/__init__.py -> build/lib/some_package
+installing to build/bdist.linux-x86_64/wheel
+running install
+running install_lib
+creating build/bdist.linux-x86_64
+creating build/bdist.linux-x86_64/wheel
+creating build/bdist.linux-x86_64/wheel/some_package
+copying build/lib/some_package/some_module.py -> build/bdist.linux-x86_64/wheel/some_package
+copying build/lib/some_package/__init__.py -> build/bdist.linux-x86_64/wheel/some_package
+running install_egg_info
+Copying src/some_package.egg-info to build/bdist.linux-x86_64/wheel/some_package-1.0-py3.6.egg-info
+running install_scripts
+adding license file "LICENSE" (matched pattern "LICEN[CS]E*")
+creating build/bdist.linux-x86_64/wheel/some_package-1.0.dist-info/WHEEL
+creating 'dist/some_package-1.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+adding 'some_package/__init__.py'
+adding 'some_package/some_module.py'
+adding 'some_package-1.0.dist-info/LICENSE'
+adding 'some_package-1.0.dist-info/METADATA'
+adding 'some_package-1.0.dist-info/WHEEL'
+adding 'some_package-1.0.dist-info/top_level.txt'
+adding 'some_package-1.0.dist-info/RECORD'
+removing build/bdist.linux-x86_64/wheel
+```
+
+```console
+$ pip install --no-index --find-links=dist some_package
+Collecting some_package
+Installing collected packages: some-package
+Successfully installed some-package-1.0
+```
 
 ## Sources
 

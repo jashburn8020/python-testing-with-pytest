@@ -575,7 +575,19 @@ class TestUpdate:
 ```
 
 - To run just this class, add `::`, then the class name to the file parameter
-  - `pytest tests/func/test_api_exceptions.py::TestUpdate​`
+  - `pytest tests/func/test_api_exceptions.py::TestUpdate`
+- Note: Running pylint on the above will result in `R0201: Method could be a function (no-self-use)` messages
+  - fix as folllows:
+
+```python
+class TestUpdate:
+    """Test expected exceptions with tasks.update()."""
+
+    @staticmethod
+    def test_bad_id():
+        """A non-int id should raise an exception."""
+        ...
+```
 
 #### A Single Test Method of a Test Class
 

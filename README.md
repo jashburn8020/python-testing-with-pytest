@@ -1,9 +1,9 @@
 # Python Testing with pytest
 
 - [Python Testing with pytest](#python-testing-with-pytest)
-  - [Getting Started with pytest](#getting-started-with-pytest)
+  - [1. Getting Started with pytest](#1-getting-started-with-pytest)
     - [Using Options](#using-options)
-  - [Writing Test Functions](#writing-test-functions)
+  - [2. Writing Test Functions](#2-writing-test-functions)
     - [Testing a Package](#testing-a-package)
       - [Installing a Package Locally](#installing-a-package-locally)
     - [Using `assert` Statements](#using-assert-statements)
@@ -25,7 +25,7 @@
       - [`ids` Optional Parameter to Make Our Own Identifiers](#ids-optional-parameter-to-make-our-own-identifiers)
       - [`parametrize()` on Classes](#parametrize-on-classes)
       - [Identify Parameters with an `id`](#identify-parameters-with-an-id)
-  - [pytest Fixtures](#pytest-fixtures)
+  - [3. pytest Fixtures](#3-pytest-fixtures)
     - [Sharing Fixtures Through conftest.py](#sharing-fixtures-through-conftestpy)
     - [Using Fixtures for Setup and Teardown](#using-fixtures-for-setup-and-teardown)
     - [Tracing Fixture Execution with `--setup-show`](#tracing-fixture-execution-with---setup-show)
@@ -36,7 +36,7 @@
     - [Using `autouse` for Fixtures That Always Get Used](#using-autouse-for-fixtures-that-always-get-used)
     - [Renaming Fixtures](#renaming-fixtures)
     - [Parametrizing Fixtures](#parametrizing-fixtures)
-  - [Builtin Fixtures](#builtin-fixtures)
+  - [4. Builtin Fixtures](#4-builtin-fixtures)
     - [Using `tmpdir` and `tmpdir_factory`](#using-tmpdir-and-tmpdir_factory)
     - [Using `pytestconfig`](#using-pytestconfig)
     - [Using `cache`](#using-cache)
@@ -44,7 +44,7 @@
     - [Using `monkeypatch`](#using-monkeypatch)
     - [Using `doctest_namespace`](#using-doctest_namespace)
     - [Using `recwarn`](#using-recwarn)
-  - [Plugins](#plugins)
+  - [5.Plugins](#5plugins)
     - [Finding Plugins](#finding-plugins)
     - [Installing Plugins](#installing-plugins)
       - [Install from PyPI](#install-from-pypi)
@@ -57,7 +57,7 @@
     - [Creating a Distribution](#creating-a-distribution)
       - [Distributing Plugins Through a Shared Directory](#distributing-plugins-through-a-shared-directory)
       - [Distributing Plugins Through PyPI](#distributing-plugins-through-pypi)
-  - [Configuration](#configuration)
+  - [6. Configuration](#6-configuration)
     - [Understanding pytest Configuration Files](#understanding-pytest-configuration-files)
     - [Changing the Default Command-Line Options](#changing-the-default-command-line-options)
     - [Registering Markers to Avoid Marker Typos](#registering-markers-to-avoid-marker-typos)
@@ -67,12 +67,12 @@
     - [Changing Test Discovery Rules](#changing-test-discovery-rules)
     - [Disallowing XPASS](#disallowing-xpass)
     - [Avoiding Filename Collisions](#avoiding-filename-collisions)
-  - [Using pytest with Other Tools](#using-pytest-with-other-tools)
+  - [7. Using pytest with Other Tools](#7-using-pytest-with-other-tools)
     - [pdb: Debugging Test Failures](#pdb-debugging-test-failures)
     - [Coverage.py: Determining How Much Code Is Tested](#coveragepy-determining-how-much-code-is-tested)
     - [mock: Swapping Out Part of the System](#mock-swapping-out-part-of-the-system)
     - [tox: Testing Multiple Configurations](#tox-testing-multiple-configurations)
-  - [Plugin Sampler Pack](#plugin-sampler-pack)
+  - [A3. Plugin Sampler Pack](#a3-plugin-sampler-pack)
     - [Plugins That Change the Normal Test Run Flow](#plugins-that-change-the-normal-test-run-flow)
       - [pytest-repeat: Run Tests More Than Once](#pytest-repeat-run-tests-more-than-once)
       - [pytest-xdist: Run Tests in Parallel](#pytest-xdist-run-tests-in-parallel)
@@ -89,16 +89,16 @@
       - [pytest-selenium: Test with a Web Browser](#pytest-selenium-test-with-a-web-browser)
       - [pytest-django: Test Django Applications](#pytest-django-test-django-applications)
       - [pytest-flask: Test Flask Applications](#pytest-flask-test-flask-applications)
-  - [Packaging and Distributing Python Projects](#packaging-and-distributing-python-projects)
+  - [A4. Packaging and Distributing Python Projects](#a4-packaging-and-distributing-python-projects)
     - [Creating an Installable Module](#creating-an-installable-module)
     - [Creating an Installable Package](#creating-an-installable-package)
     - [Creating a Source Distribution and Wheel](#creating-a-source-distribution-and-wheel)
   - [Sources](#sources)
 
-## Getting Started with pytest
+## 1. Getting Started with pytest
 
 ```console
-​$ $ pippytest --help​
+​$ pytest --help​
 usage: pytest [options] [file_or_dir] [file_or_dir] [...]
 ...
 ```
@@ -115,7 +115,7 @@ usage: pytest [options] [file_or_dir] [file_or_dir] [...]
   - see: _Configuration_
 - Running only one test:
   - `pytest <directory>/<file.py>::<test_name>`
-  - e.g., `$ pippytest $ piptasks/test_four.py::test_asdict`
+  - e.g., `pytest tasks/test_four.py::test_asdict`
 
 ### Using Options
 
@@ -125,7 +125,7 @@ usage: pytest [options] [file_or_dir] [file_or_dir] [...]
   - e.g., when used in conjunction with `-k`
 - `-k`
   - use an expression to find what test functions to run
-  - e.g., `pytest -k "asdict or defaults"$ pip`
+  - e.g., `pytest -k "asdict or defaults"`
     - run the `test_asdict()` and `test_defaults()` tests
 - `-m MARKEXPR`
   - markers allow you to mark a subset of your test functions so that they can be run together
@@ -219,7 +219,7 @@ FAILED tests/test_s_option.py::test_fail - assert 1 == 2
   - report the slowest N number of tests/setups/teardowns after the tests run
   - `--durations=0` reports everything in order of slowest to fastest
 
-## Writing Test Functions
+## 2. Writing Test Functions
 
 ### Testing a Package
 
@@ -296,8 +296,8 @@ FAILED tests/test_s_option.py::test_fail - assert 1 == 2
 - Run tests:
 
 ```console
-​$ $ pipcd /path/to/code/ch2/tasks_proj/tests/unit​
-$ $ pippytest test_task.py​
+​$ cd /path/to/code/ch2/tasks_proj/tests/unit​
+$ pytest test_task.py​
 ```
 
 ### Using `assert` Statements
@@ -523,7 +523,7 @@ xfail_strict=true
 #### A Single Directory
 
 - To run all the tests from one directory, use the directory as a parameter to pytest
-  - `$ pip​pytest tests/func`
+  - `​pytest tests/func`
 
 ```console
 $ pytest --disable-warnings -v tests/func
@@ -592,7 +592,7 @@ class TestUpdate:
 #### A Single Test Method of a Test Class
 
 - If you want to run just one method, add another `::` and the method name
-  - `$ pippytest tests/func/test_api_exceptions.py::TestUpdate::test_bad_id​`
+  - `pytest tests/func/test_api_exceptions.py::TestUpdate::test_bad_id​`
 
 #### A Set of Tests Based on Test Name
 
@@ -835,7 +835,7 @@ tests/func/test_add_variety.py::test_add_6[summary/owner/done] PASSED    [100%]
 ============================== 3 passed in 0.46s ===============================
 ```
 
-## pytest Fixtures
+## 3. pytest Fixtures
 
 - Fixtures are functions that are run by pytest before (and sometimes after) the actual test functions
   - the mechanism pytest provides to allow the separation of "getting ready for" and "cleaning up after" code from your test functions
@@ -1284,7 +1284,7 @@ def test_add_c(tasks_db, c_task):
 
 - Since the parametrization is a list of `Task` objects, `id_func()` will be called with a `Task` object, which allows us to use the `namedtuple` accessor methods to access a single `Task` object to generate the identifier for one `Task` object at a time
 
-## Builtin Fixtures
+## 4. Builtin Fixtures
 
 ### Using `tmpdir` and `tmpdir_factory`
 
@@ -1510,7 +1510,7 @@ with pytest.warns(None) as warning_list:
 
 - `recwarn` and the `pytest.warns()` context manager provide similar functionality, so the decision of which to use is purely a matter of taste
 
-## Plugins
+## 5.Plugins
 
 - The pytest code base is structured with customization and extensions, and there are hooks available to allow modifications and improvements through plugins
 
@@ -1708,7 +1708,7 @@ pytest-nice-0.1.0.tar.gz
 - When you are contributing a pytest plugin, a great place to start is by using the `cookiecutter-pytest-plugin`
   - see <https://github.com/pytest-dev/cookiecutter-pytest-plugin>
 
-## Configuration
+## 6. Configuration
 
 ### Understanding pytest Configuration Files
 
@@ -1829,7 +1829,7 @@ python_functions = test_* check_*
 
 - If you have empty `__init__.py` files in all of your test subdirectories, you can have the same test filename show up in multiple directories
 
-## Using pytest with Other Tools
+## 7. Using pytest with Other Tools
 
 ### pdb: Debugging Test Failures
 
@@ -2051,7 +2051,7 @@ def test_list_no_args(mocker):
   - `tox`
 - See: <https://tox.readthedocs.io/en/latest/>
 
-## Plugin Sampler Pack
+## A3. Plugin Sampler Pack
 
 - All of the plugins featured here are available on PyPI and are installed with `pip install <plugin-name>`
 
@@ -2424,7 +2424,7 @@ ERROR test_outcomes.py::test_error - assert 1 == 2
 
 - The `pytest-flask` plugin provides a handful of fixtures to assist in testing Flask applications
 
-## Packaging and Distributing Python Projects
+## A4. Packaging and Distributing Python Projects
 
 ### Creating an Installable Module
 

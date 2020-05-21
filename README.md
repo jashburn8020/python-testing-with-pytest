@@ -1413,7 +1413,7 @@ cache/stepwise contains:
 - The `capsys` builtin fixture provides two bits of functionality:
   - retrieve `stdout` and `stderr` from some code
   - disables output capture temporarily
-- The captured `stdout` and `stderr` are retrieved from `capsys.redouterr()`
+- The captured `stdout` and `stderr` are retrieved from `capsys.readouterr()`
   - return value is whatever has been captured since the beginning of the function, or from the last time it was called
   - see [`cap/test_capsys.py`](ch4/cap/test_capsys.py)
 - Use `with capsys.disabled()` to temporarily let output get past the capture mechanism
